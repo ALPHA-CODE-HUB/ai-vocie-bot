@@ -1,1 +1,1 @@
-# No external requirements needed for this minimal handler 
+# No external requirements needed

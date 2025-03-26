@@ -1,20 +1,21 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from http.server import BaseHTTPRequestHandler
+import json
 import os
 
-app = FastAPI()
-
-@app.get("/api")
-async def hello():
-    return {"message": "AI Voice Bot API is running"}
-
-@app.get("/api/health")
-async def health_check():
-    return {"status": "ok"}
-
-# Add routes for your other API functions
-# These will be implemented gradually as we confirm each step works
-
-# Special handler for Vercel serverless functions
-def handler(request, context):
-    return app 
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        
+        # Route handling based on path
+        if self.path == "/" or self.path == "":
+            response = {"message": "AI Voice Bot API is running"}
+        elif self.path == "/api/health":
+            response = {"status": "ok"}
+        else:
+            response = {"message": "Hello from Python on Vercel!"}
+        
+        # Send the response
+        self.wfile.write(json.dumps(response).encode('utf-8'))
+        return
