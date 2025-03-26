@@ -1,27 +1,110 @@
 import os
 import logging
+import tempfile
+import requests
+from openai import OpenAI
+from elevenlabs import generate, set_api_key
 from typing import Dict, List, Any, Optional
 
 # Configure logging
-logger = logging.getLogger(__name__)
+def setup_logging():
+    logging.basicConfig(level=logging.INFO)
+    return logging.getLogger(__name__)
 
-def validate_api_keys() -> Dict[str, bool]:
-    """
-    Validate that all required API keys are present in the environment.
+# Validate API keys
+def validate_api_keys():
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+    ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
     
-    Returns:
-        Dict[str, bool]: A dictionary with API service names as keys and validation status as values
-    """
-    api_keys = {
-        "OpenAI": os.environ.get("OPENAI_API_KEY") is not None,
-        "ElevenLabs": os.environ.get("ELEVENLABS_API_KEY") is not None
-    }
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY not found in environment variables")
+    if not ELEVENLABS_API_KEY:
+        raise ValueError("ELEVENLABS_API_KEY not found in environment variables")
     
-    for service, is_valid in api_keys.items():
-        if not is_valid:
-            logger.warning(f"{service} API key is missing")
+    # Set ElevenLabs API key
+    set_api_key(ELEVENLABS_API_KEY)
     
-    return api_keys
+    return OPENAI_API_KEY, ELEVENLABS_API_KEY
+
+# Process audio file
+def process_audio_file(audio_file):
+    OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+    
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
+        # Write the uploaded file to the temporary file
+        temp_file.write(audio_file.read())
+        temp_file_path = temp_file.name
+    
+    try:
+        # Attempt to use OpenAI's API directly
+        with open(temp_file_path, "rb") as audio:
+            response = requests.post(
+                "https://api.openai.com/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
+                files={"file": audio},
+                data={"model": "whisper-1"}
+            )
+            
+            if response.status_code == 200:
+                response_json = response.json()
+                if "text" in response_json:
+                    return response_json["text"]
+            return "I'm sorry, but speech-to-text is currently limited. Please type your message instead."
+    
+    except Exception as e:
+        logging.error(f"Error processing audio file: {str(e)}")
+        return "I'm sorry, but speech-to-text is currently limited. Please type your message instead."
+    
+    finally:
+        # Clean up the temporary file
+        os.unlink(temp_file_path)
+
+# Generate AI response
+def generate_ai_response(message: str, conversation_history: list = []) -> str:
+    OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+    
+    if not OPENROUTER_API_KEY:
+        raise ValueError("OpenRouter API key not found")
+    
+    # Initialize OpenAI client with OpenRouter base URL
+    client = OpenAI(
+        api_key=OPENROUTER_API_KEY,
+        base_url="https://openrouter.ai/api/v1",
+    )
+    
+    # Prepare conversation history
+    messages = []
+    messages.append({"role": "system", "content": "You are a helpful AI assistant."})
+    for msg in conversation_history:
+        messages.append(msg)
+    messages.append({"role": "user", "content": message})
+    
+    # Call OpenRouter API
+    response = client.chat.completions.create(
+        model="openai/gpt-3.5-turbo",
+        messages=messages,
+        max_tokens=500,
+        temperature=0.7
+    )
+    
+    return response.choices[0].message.content
+
+# Generate speech
+def generate_speech(text: str) -> bytes:
+    ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
+    
+    if not ELEVENLABS_API_KEY:
+        raise ValueError("ElevenLabs API key not found")
+    
+    # Generate audio using ElevenLabs
+    audio = generate(
+        text=text,
+        voice="Adam",  # Default voice
+        model="eleven_monolingual_v1"
+    )
+    
+    return audio
 
 def format_conversation_for_openai(system_prompt: str, conversation_history: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """

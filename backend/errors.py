@@ -8,32 +8,24 @@ logger = logging.getLogger(__name__)
 
 # Define custom exceptions
 class APIKeyMissingError(HTTPException):
-    def __init__(self, service_name: str):
-        super().__init__(
-            status_code=500,
-            detail=f"{service_name} API key is missing. Please check your environment variables."
-        )
+    """Raised when an API key is missing from environment variables."""
+    def __init__(self, detail: str = "API key missing"):
+        super().__init__(status_code=401, detail=detail)
 
 class AudioProcessingError(HTTPException):
-    def __init__(self, message: str = "Error processing audio"):
-        super().__init__(
-            status_code=400,
-            detail=message
-        )
+    """Raised when there's an error processing audio files."""
+    def __init__(self, detail: str = "Error processing audio file"):
+        super().__init__(status_code=400, detail=detail)
 
 class TextGenerationError(HTTPException):
-    def __init__(self, message: str = "Error generating text response"):
-        super().__init__(
-            status_code=500,
-            detail=message
-        )
+    """Raised when there's an error generating text responses."""
+    def __init__(self, detail: str = "Error generating text"):
+        super().__init__(status_code=500, detail=detail)
 
 class SpeechGenerationError(HTTPException):
-    def __init__(self, message: str = "Error generating speech from text"):
-        super().__init__(
-            status_code=500,
-            detail=message
-        )
+    """Raised when there's an error generating speech."""
+    def __init__(self, detail: str = "Error generating speech"):
+        super().__init__(status_code=500, detail=detail)
 
 # Error handling middleware
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
@@ -53,39 +45,39 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 content={"detail": "An unexpected error occurred. Please try again later."}
             )
 
-# Error handlers to register with the FastAPI app
-async def api_key_missing_exception_handler(request: Request, exc: APIKeyMissingError):
-    logger.error(f"API Key Missing: {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
-
-async def audio_processing_exception_handler(request: Request, exc: AudioProcessingError):
-    logger.error(f"Audio Processing Error: {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
-
-async def text_generation_exception_handler(request: Request, exc: TextGenerationError):
-    logger.error(f"Text Generation Error: {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
-
-async def speech_generation_exception_handler(request: Request, exc: SpeechGenerationError):
-    logger.error(f"Speech Generation Error: {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
-
 # Function to register all exception handlers with the app
 def setup_exception_handlers(app):
-    app.add_exception_handler(APIKeyMissingError, api_key_missing_exception_handler)
-    app.add_exception_handler(AudioProcessingError, audio_processing_exception_handler)
-    app.add_exception_handler(TextGenerationError, text_generation_exception_handler)
-    app.add_exception_handler(SpeechGenerationError, speech_generation_exception_handler)
-    app.add_middleware(ErrorHandlingMiddleware) 
+    """Setup custom exception handlers for the FastAPI app."""
+    @app.exception_handler(APIKeyMissingError)
+    async def api_key_missing_exception_handler(request: Request, exc: APIKeyMissingError):
+        logger.error(f"API Key Missing: {exc}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+
+    @app.exception_handler(AudioProcessingError)
+    async def audio_processing_exception_handler(request: Request, exc: AudioProcessingError):
+        logger.error(f"Audio Processing Error: {exc}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+
+    @app.exception_handler(TextGenerationError)
+    async def text_generation_exception_handler(request: Request, exc: TextGenerationError):
+        logger.error(f"Text Generation Error: {exc}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+
+    @app.exception_handler(SpeechGenerationError)
+    async def speech_generation_exception_handler(request: Request, exc: SpeechGenerationError):
+        logger.error(f"Speech Generation Error: {exc}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+
+    app.add_middleware(ErrorHandlingMiddleware)

@@ -1,0 +1,17 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "backend/index.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "backend/index.py"
+        }
+    ],
+    "buildCommand": "chmod +x build.sh && ./build.sh",
+    "outputDirectory": "backend"
+} 
